@@ -1,0 +1,62 @@
+# ==============================================================================
+# ExtensivePistons Configuration
+# ==============================================================================
+# Reload changes in-game with: /extensivepistons reload
+#
+# Vanilla Reference Settings:
+#   pushable-tile-entities: false
+#   push-limit: 12
+#   max-tile-entities-per-push: 0
+#   disable-qc: false
+#   whitelist-on: false
+#   blacklist-on: true
+# ==============================================================================
+
+# Allows pistons to push and pull blocks that store data (chests, barrels,
+# hoppers, furnaces, shulker boxes, etc.) while preserving all contents and NBT.
+# Double chests automatically split when one half is moved and rejoin when pushed back.
+pushable-tile-entities: true
+
+# Maximum number of blocks a single piston can push or pull at once.
+# Vanilla default: 12
+push-limit: 64
+
+# Maximum number of tile entities (chests, hoppers, shulker boxes, etc.) allowed
+# in a single piston push or pull. Prevents server lag spikes from massive storage movers.
+# Set to 0 to disallow moving tile entities while keeping the increased push-limit.
+max-tile-entities-per-push: 16
+
+# Disables Quasi-Connectivity (QC) on pistons so they only react to direct redstone power
+# (similar to Minecraft Bedrock Edition).
+# Vanilla Java default: false
+disable-qc: false
+
+# ------------------------------------------------------------------------------
+# Block Whitelist (Force-Pushable Overrides)
+# ------------------------------------------------------------------------------
+# When enabled, any block listed below can be pushed and pulled by pistons—even
+# if vanilla Minecraft normally marks it as immovable or unbreakable.
+# Whitelisted blocks take priority over the blacklist below.
+whitelist-on: true
+whitelist:
+  - minecraft:obsidian
+  - minecraft:reinforced_deepslate
+  - minecraft:bedrock
+
+# ------------------------------------------------------------------------------
+# Block Blacklist (Immovable Overrides)
+# ------------------------------------------------------------------------------
+# When enabled, any block listed below is strictly prevented from being pushed
+# or pulled by pistons (unless it is also present in the whitelist above).
+# By default, this protects operator/creative blocks, spawners, and portal frames.
+blacklist-on: true
+blacklist:
+  - minecraft:spawner
+  - minecraft:trial_spawner
+  - minecraft:vault
+  - minecraft:end_portal_frame
+  - minecraft:command_block
+  - minecraft:repeating_command_block
+  - minecraft:chain_command_block
+  - minecraft:structure_block
+  - minecraft:jigsaw

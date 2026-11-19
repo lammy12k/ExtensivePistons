@@ -1,0 +1,15 @@
+name: ExtensivePistons
+description: 'A Paper 26.3 Mixin plugin that makes tile entities pushable, raises piston push limits, and adds Bedrock-style double chest mechanics and block whitelists.'
+version: '${version}'
+main: com.kyfstore.extensivePistons.ExtensivePistons
+api-version: '26.3'
+load: POSTWORLD
+authors: [ lammy12k ]
+softdepend: [ MixinLoader ]
+mixins:
+  - extensivepistons.mixins.json
+
+permissions:
+  extensivepistons.admin:
+    description: Allows managing ExtensivePistons configuration
+    default: op

@@ -1,0 +1,54 @@
+plugins {
+    id("java-library")
+    id("io.papermc.paperweight.userdev") version "2.0.0-beta.24"
+    id("com.gradleup.shadow") version "9.6.1"
+    id("xyz.jpenilla.run-paper") version "3.1.0"
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    paperweight.paperDevBundle("26.3.build.+")
+    
+    compileOnly("org.spongepowered:mixin:${providers.gradleProperty("mixin_version").get()}")
+    compileOnly("io.github.llamalad7:mixinextras-common:${providers.gradleProperty("mixinextras_version").get()}")
+    annotationProcessor("io.github.llamalad7:mixinextras-common:${providers.gradleProperty("mixinextras_version").get()}")
+
+    implementation("org.incendo:cloud-paper:${providers.gradleProperty("cloud-paper_version").get()}")
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(25)
+}
+
+tasks {
+    build {
+        dependsOn(shadowJar)
+    }
+
+    val copyPluginToRun by registering(Copy::class) {
+        dependsOn(shadowJar)
+        from(shadowJar.flatMap { it.archiveFile })
+        into(layout.projectDirectory.dir("run/plugins"))
+    }
+
+    runServer {
+        dependsOn("copyPluginToRun")
+        minecraftVersion("26.3")
+        jvmArgs(
+            "-Xms2G",
+            "-Xmx2G",
+            "-javaagent:plugins/MixinLoader-2.1.0.jar",
+            "-Dcom.mojang.eula.agree=true"
+        )
+    }
+
+    processResources {
+        val props = mapOf("version" to version)
+        filesMatching("plugin.yml") {
+            expand(props)
+        }
+    }
+}
