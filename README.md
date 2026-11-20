@@ -1,6 +1,6 @@
 # ExtensivePistons
 
-A Paper 26.3 plugin powered by [MixinLoader](https://github.com/Chest-Solutions/MixinLoader) that enhances piston mechanics with pushable tile entities, configurable push limits, Bedrock-style double chest splitting/rejoining, quasi-connectivity toggles, and custom block whitelists/blacklists.
+A Paper 26.3 plugin powered by [MixinLoader](https://github.com) that enhances piston mechanics with pushable tile entities, configurable push limits, Bedrock-style double chest splitting/rejoining, quasi-connectivity and block-spitting toggles, animation speed multipliers, claim border protection, and custom block whitelists/blacklists.
 
 ---
 
@@ -10,8 +10,10 @@ A Paper 26.3 plugin powered by [MixinLoader](https://github.com/Chest-Solutions/
 - **Bedrock-Style Double Chests:** Automatically kicks viewing players before moving, cleanly splits double chests when one half is pushed or pulled, and rejoins adjacent single chests facing the same direction.
 - **Configurable Push Limit:** Increase or decrease the maximum piston push/pull block limit (default `64`, vanilla `12`).
 - **Anti-Lag Tile Entity Cap:** Limit how many tile entities can be moved in a single piston action (`max-tile-entities-per-push`).
+- **Quasi-Connectivity & Block-Spitting Toggles:** Optionally disable piston quasi-connectivity (`disable-qc`) or sticky piston 1-tick block spitting (`spit-block`) for Bedrock-like redstone behavior.
+- **Piston Animation Speed:** Adjust piston extension and retraction speed (`piston-speed`).
+- **Claim & Spawn Border Protection:** Prevent pistons from pushing or pulling blocks across spawn protection or claim boundaries (`respect-claim-borders`).
 - **Custom Whitelist & Blacklist:** Force normally immovable blocks (such as obsidian, reinforced deepslate, or bedrock) to be pushable, or protect sensitive blocks (such as spawners, portal frames, and command blocks).
-- **Quasi-Connectivity Toggle:** Optionally disable piston quasi-connectivity (`disable-qc`) for Bedrock-like redstone behavior.
 - **World Height & Border Safety:** Prevents pistons from pushing blocks past build limits or outside the world border.
 
 ---
@@ -19,29 +21,34 @@ A Paper 26.3 plugin powered by [MixinLoader](https://github.com/Chest-Solutions/
 ## Requirements
 
 - **Server:** Paper 26.3 (Java 25+)
-- **Dependency:** [MixinLoader](https://github.com/Chest-Solutions/MixinLoader)
+- **Dependency:** [MixinLoader](https://github.com)
 
 ---
 
 ## Installation
 
 1. Download the latest `MixinLoader-<version>.jar` from the [MixinLoader Releases](https://github.com/releases) page.
-2. Download `ExtensivePistons-<version>.jar`.
+2. Download **`ExtensivePistons-<version>-all.jar`** (make sure to use the `-all` JAR).
 3. Place both JAR files into your server's `plugins/` folder.
 4. Start your server normally (`java -jar server.jar`).
-   - *Note: On first startup without a `-javaagent` flag, MixinLoader will automatically restart the JVM once to attach its Mixin agent.*
+   - *Note: On first startup without a `-javaagent` flag, MixinLoader will automatically restart the JVM once to attach its Mixin agent.* (On some versions of MixinLoader, you may have to put MixinLoader in the plugins/ AND launch the server.jar manually with -javaagent:MixinLoader-\<version\>.jar)
    - *(Optional)* To skip the automatic restart, add `-javaagent:plugins/MixinLoader-<version>.jar` before `-jar server.jar` in your startup script.
 
 ---
 
 ## Commands & Permissions
 
-| Command | Description | Permission |
-| :--- | :--- | :--- |
-| `/extensivepistons reload` | Reloads `config.yml` from disk | `extensivepistons.admin` (default: `op`) |
-| `/extensivepistons info` | Displays all active settings | `extensivepistons.admin` (default: `op`) |
-| `/extensivepistons set <setting> <value>` | Updates `push-limit` or `max-tile-entities-per-push` | `extensivepistons.admin` (default: `op`) |
-| `/extensivepistons toggle <setting>` | Toggles `pushable-tile-entities`, `disable-qc`, `whitelist-on`, or `blacklist-on` | `extensivepistons.admin` (default: `op`) |
+**Base Command:** `/extensivepistons` (Alias: `/ep`)  
+**Permission:** `extensivepistons.admin` (default: `op`)
+
+| Command | Description |
+| :--- | :--- |
+| `/ep reload` | Reloads `config.yml` from disk |
+| `/ep info` | Displays all active settings |
+| `/ep set <setting> <value>` | Updates `push-limit`, `max-tile-entities-per-push`, or `piston-speed` |
+| `/ep toggle <setting>` | Toggles `pushable-tile-entities`, `disable-qc`, `spit-block`, `respect-claim-borders`, `whitelist-on`, or `blacklist-on` |
+| `/ep whitelist <add\|remove\|info> [block]` | Manages or views force-pushable block overrides |
+| `/ep blacklist <add\|remove\|info> [block]` | Manages or views immovable block overrides |
 
 ---
 
@@ -58,6 +65,9 @@ A Paper 26.3 plugin powered by [MixinLoader](https://github.com/Chest-Solutions/
 #   push-limit: 12
 #   max-tile-entities-per-push: 0
 #   disable-qc: false
+#   spit-block: true
+#   piston-speed: 1.0
+#   respect-claim-borders: false
 #   whitelist-on: false
 #   blacklist-on: true
 # ==============================================================================
@@ -80,6 +90,21 @@ max-tile-entities-per-push: 16
 # (similar to Minecraft Bedrock Edition).
 # Vanilla Java default: false
 disable-qc: false
+
+# Whether sticky pistons drop ("spit") their block when given a 1-tick redstone pulse.
+# Set to false for Bedrock-style behavior where sticky pistons always pull their block back.
+# Vanilla Java default: true
+spit-block: true
+
+# Multiplier for piston extension/retraction animation speed.
+# Higher values (e.g., 2.0) complete piston movements faster; lower values slow them down.
+# Vanilla default: 1.0
+piston-speed: 1.0
+
+# Prevents pistons from pushing or pulling blocks across spawn protection or
+# claim boundaries (WorldGuard, GriefPrevention, Towny, etc.).
+# Vanilla default: false
+respect-claim-borders: true
 
 # ------------------------------------------------------------------------------
 # Block Whitelist (Force-Pushable Overrides)
@@ -117,9 +142,9 @@ blacklist:
 ## Building from Source
 
 ```bash
-git clone https://github.com/lammy12k/ExtensivePistons
+git clone https://github.com
 cd ExtensivePistons
 ./gradlew build
 ```
 
-The compiled plugin JAR will be output to `build/libs/`.
+The compiled plugin JARs will be output to `build/libs/` (use the `-all.jar` file on your server).

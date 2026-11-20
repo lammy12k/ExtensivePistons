@@ -8,6 +8,9 @@
 #   push-limit: 12
 #   max-tile-entities-per-push: 0
 #   disable-qc: false
+#   spit-block: true
+#   piston-speed: 1.0
+#   respect-claim-borders: false
 #   whitelist-on: false
 #   blacklist-on: true
 # ==============================================================================
@@ -30,6 +33,21 @@ max-tile-entities-per-push: 16
 # (similar to Minecraft Bedrock Edition).
 # Vanilla Java default: false
 disable-qc: false
+
+# Whether sticky pistons drop ("spit") their block when given a 1-tick redstone pulse.
+# Set to false for Bedrock-style behavior where sticky pistons always pull their block back.
+# Vanilla Java default: true
+spit-block: true
+
+# Multiplier for piston extension/retraction animation speed.
+# Higher values (e.g., 2.0) complete piston movements faster; lower values slow them down.
+# Vanilla default: 1.0
+piston-speed: 1.0
+
+# Prevents pistons from pushing or pulling blocks across spawn protection or
+# claim boundaries (WorldGuard, GriefPrevention, Towny, etc.).
+# Vanilla default: false
+respect-claim-borders: true
 
 # ------------------------------------------------------------------------------
 # Block Whitelist (Force-Pushable Overrides)

@@ -23,8 +23,15 @@ import net.minecraft.world.level.block.piston.PistonStructureResolver;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.ChestType;
 import net.minecraft.world.level.storage.TagValueOutput;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.World;
+import org.bukkit.block.BlockFace;
 import org.bukkit.craftbukkit.block.CraftBlock;
 import org.bukkit.entity.HumanEntity;
+import org.bukkit.event.block.BlockPistonEvent;
+import org.bukkit.event.block.BlockPistonExtendEvent;
+import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.inventory.InventoryHolder;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -42,6 +49,55 @@ public class PistonBaseBlockMixin {
     @Unique
     private static final ThreadLocal<Map<BlockPos, CompoundTag>> PENDING_CAPTURED =
             ThreadLocal.withInitial(HashMap::new);
+
+    @Unique
+    private static final ThreadLocal<Boolean> PROBE_IN_PROGRESS =
+            ThreadLocal.withInitial(() -> false);
+
+    @WrapOperation(
+            method = "checkIfExtend",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/world/level/Level;blockEvent(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/Block;II)V"
+            )
+    )
+    private void preventBlockSpitting(
+            Level level,
+            BlockPos pos,
+            Block block,
+            int eventId,
+            int data,
+            Operation<Void> original
+    ) {
+        if (!ExtensivePistons.isSpitBlock() && eventId == 2) {
+            eventId = 1;
+        }
+        original.call(level, pos, block, eventId, data);
+    }
+
+    @WrapOperation(
+            method = "triggerEvent",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/world/level/block/piston/PistonMovingBlockEntity;isExtending()Z"
+            )
+    )
+    private boolean pullBackAfterFinishingExtension(
+            PistonMovingBlockEntity entity,
+            Operation<Boolean> original,
+            @Local(ordinal = 3) com.llamalad7.mixinextras.sugar.ref.LocalRef<BlockState> movingStateRef,
+            @Local(argsOnly = true) Level level
+    ) {
+        boolean extending = original.call(entity);
+        if (!ExtensivePistons.isSpitBlock() && extending) {
+            BlockPos twoPos = entity.getBlockPos();
+            entity.finalTick();
+            BlockState updated = level.getBlockState(twoPos);
+            movingStateRef.set(updated);
+            return false;
+        }
+        return extending;
+    }
 
     @Inject(method = "isPushable", at = @At("HEAD"), cancellable = true)
     private static void checkWhitelistAndBlacklist(
@@ -65,11 +121,6 @@ public class PistonBaseBlockMixin {
 
         Block block = state.getBlock();
 
-        if (ExtensivePistons.isBlacklisted(block)) {
-            cir.setReturnValue(false);
-            return;
-        }
-
         if (ExtensivePistons.isWhitelisted(block)) {
             if (state.hasBlockEntity() && !ExtensivePistons.isPushableTileEntities()) {
                 cir.setReturnValue(false);
@@ -80,6 +131,11 @@ public class PistonBaseBlockMixin {
             } else {
                 cir.setReturnValue(false);
             }
+            return;
+        }
+
+        if (ExtensivePistons.isBlacklisted(block)) {
+            cir.setReturnValue(false);
             return;
         }
 
@@ -122,7 +178,8 @@ public class PistonBaseBlockMixin {
                     value = "INVOKE",
                     target = "Lnet/minecraft/world/level/block/piston/PistonStructureResolver;getToPush()Ljava/util/List;",
                     ordinal = 0
-            )
+            ),
+            cancellable = true
     )
     private void prepareBlockEntitiesAfterResolve(
             Level level,
@@ -135,12 +192,21 @@ public class PistonBaseBlockMixin {
         Map<BlockPos, CompoundTag> captured = PENDING_CAPTURED.get();
         captured.clear();
 
-        if (!ExtensivePistons.isPushableTileEntities() || level.isClientSide()) {
+        if (level.isClientSide()) {
             return;
         }
 
         Direction moveDir = resolver.getPushDirection();
         List<BlockPos> toPush = resolver.getToPush();
+
+        if (extensivePistons$crossesProtectedBoundary(level, pistonPos, extending, moveDir, toPush)) {
+            cir.setReturnValue(false);
+            return;
+        }
+
+        if (!ExtensivePistons.isPushableTileEntities()) {
+            return;
+        }
 
         for (BlockPos oldPos : toPush) {
             BlockState state = level.getBlockState(oldPos);
@@ -216,6 +282,66 @@ public class PistonBaseBlockMixin {
         PENDING_CAPTURED.get().clear();
     }
 
+    @Unique
+    private static boolean extensivePistons$crossesProtectedBoundary(
+            Level level,
+            BlockPos pistonPos,
+            boolean extending,
+            Direction moveDir,
+            List<BlockPos> toPush
+    ) {
+        if (!ExtensivePistons.isRespectClaimBorders() || PROBE_IN_PROGRESS.get()) {
+            return false;
+        }
+
+        World bukkitWorld = level.getWorld();
+        org.bukkit.block.Block pistonBukkitBlock = CraftBlock.at(level, pistonPos);
+        int spawnRadius = Bukkit.getSpawnRadius();
+
+        if (spawnRadius > 0 && bukkitWorld.getEnvironment() == World.Environment.NORMAL) {
+            Location spawn = bukkitWorld.getSpawnLocation();
+            boolean pistonInSpawn = Math.abs(pistonPos.getX() - spawn.getBlockX()) <= spawnRadius
+                    && Math.abs(pistonPos.getZ() - spawn.getBlockZ()) <= spawnRadius;
+            for (BlockPos oldPos : toPush) {
+                BlockPos destPos = oldPos.relative(moveDir);
+                boolean oldInSpawn = Math.abs(oldPos.getX() - spawn.getBlockX()) <= spawnRadius
+                        && Math.abs(oldPos.getZ() - spawn.getBlockZ()) <= spawnRadius;
+                boolean destInSpawn = Math.abs(destPos.getX() - spawn.getBlockX()) <= spawnRadius
+                        && Math.abs(destPos.getZ() - spawn.getBlockZ()) <= spawnRadius;
+                if (pistonInSpawn != oldInSpawn || pistonInSpawn != destInSpawn) {
+                    return true;
+                }
+            }
+        }
+        int pistonChunkX = pistonPos.getX() >> 4;
+        int pistonChunkZ = pistonPos.getZ() >> 4;
+        PROBE_IN_PROGRESS.set(true);
+        try {
+            for (BlockPos oldPos : toPush) {
+                BlockPos destPos = oldPos.relative(moveDir);
+                boolean crossesChunk = (oldPos.getX() >> 4) != pistonChunkX
+                        || (oldPos.getZ() >> 4) != pistonChunkZ
+                        || (destPos.getX() >> 4) != pistonChunkX
+                        || (destPos.getZ() >> 4) != pistonChunkZ;
+                if (crossesChunk) {
+                    List<org.bukkit.block.Block> probeBlocks = List.of(
+                            CraftBlock.at(level, oldPos),
+                            CraftBlock.at(level, destPos)
+                    );
+                    BlockFace face = CraftBlock.notchToBlockFace(moveDir);
+                    BlockPistonEvent probeEvent = extending
+                            ? new BlockPistonExtendEvent(pistonBukkitBlock, probeBlocks, face)
+                            : new BlockPistonRetractEvent(pistonBukkitBlock, probeBlocks, face);
+                    if (!probeEvent.callEvent()) {
+                        return true;
+                    }
+                }
+            }
+        } finally {
+            PROBE_IN_PROGRESS.set(false);
+        }
+        return false;
+    }
     @Unique
     private static void extensivePistons$closeViewers(Level level, BlockPos pos) {
         org.bukkit.block.Block bukkitBlock = CraftBlock.at(level, pos);
