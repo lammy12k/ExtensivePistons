@@ -27,7 +27,7 @@ jobs:
       - name: Set up latest Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: 'latest'
+          gradle-version: current
 
       - name: Build with Gradle
         run: gradle build
